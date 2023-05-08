@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<!----> 
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>ECDH-Cook</title>
+  <link rel="stylesheet" href="./layui/css/layui.css">
+  <script src="./layui/layui.js"></script>
+  <script src="./lib/encoding-indexes.js"></script>
+  <script src="./lib/encoding.js"></script>
+</head>
+
+<body>
+<!--<div class="layui-container" style="padding: 8px;background-color: #d2d2d2;">-->
+<div class="layui-row" style="padding: 8px;background-color: #d2d2d2;">
+<div class="layui-col-md9">
+<!--生成ecdh并导出ecdh公钥部分--> 
+<!--需要组件和逻辑：按钮：GEN（最好执行时跳出警告：会清空之前的密钥，ecdh状态图标变为ok），之后可以直接打开折叠面板查看公钥--> 
+<div class="layui-card">
+  <div class="layui-card-header">ECDH密钥对生成和公钥导出&emsp;&emsp;密钥状态：<i class="layui-icon layui-icon-close-fill" id="ecdh_state" style="font-size: 30px; color: #FF5722;"></i></div>
+  <div class="layui-card-body">
+    <button class="layui-btn" onclick="ecdh_gen_button()" lay-submit >生成密钥对</button>
+  </div>
+<div class="layui-collapse">
+  <div class="layui-colla-item">
+    <h2 class="layui-colla-title">查看ECDH公钥并分享</h2>
+    <div id="epb_show" class="layui-colla-content">尚未生成ECDH公钥</div>
+  </div>
+</div>
+</div>
+
+
+<!--输入对方公钥，ecdh生成共享密钥部分--> 
+<!--需要组件和逻辑：文本框：输入公钥，按钮：生成aes密钥（生成后清空文本框，同时aes状态图标变为OK）--> 
+<div class="layui-card">
+<div class="layui-card-header">AES共享密钥生成&emsp;&emsp;密钥状态：<i class="layui-icon layui-icon-close-fill" id="aes_state" style="font-size: 30px; color: #FF5722;"></i></div>
+<div class="layui-card-body">
+<div class="layui-form-item">
+<label class="layui-form-label">从公钥生成</label>
+    <div class="layui-input-block">
+      <input type="text" id="ecdhpbkey_input" name="title" required  lay-verify="required" placeholder="请确保ECDH密钥对状态为可用，并输入外部ECDH公钥" autocomplete="off" class="layui-input">
+    </div>
+</div>
+<div class="layui-form-item">
+  <div class="layui-input-block">
+    <button class="layui-btn" onclick="aesshare_gen_button()" lay-submit lay-filter="formDemo">生成AES共享密钥</button>
+  </div>
+</div>
+<div class="layui-form-item">
+<label class="layui-form-label">或直接导入</label>
+    <div class="layui-input-block">
+      <input type="text" id="aeskey_input" name="title" required  lay-verify="required" placeholder="请输入从此页面导出格式（base64编码）的AES密钥" autocomplete="off" class="layui-input">
+    </div>
+<div class="layui-form-item">
+  <div class="layui-input-block">
+    <button class="layui-btn" onclick="aesshare_import_button()" lay-submit lay-filter="formDemo">导入AES密钥</button>
+  </div>
+</div>
+</div>
+</div>
+<div class="layui-collapse">
+  <div class="layui-colla-item">
+    <h2 class="layui-colla-title">查看AES密钥以保存</h2>
+    <div id="aeskey_show" class="layui-colla-content">尚未生成/导入AES密钥</div>
+  </div>
+</div>
+</div>
+
+
+<!--AES加解密部分--> 
+<!--需要组件和逻辑：aes状态图标，加解密文本输入；单选框：加密/解密，按钮：BAKE!，卡片面板：RESULT--> 
+<div class="layui-card">
+<div class="layui-card-header">AES加解密</div>
+<div class="layui-card-body">
+<textarea id="aesdata" name="" required lay-verify="required" placeholder="请输入要进行AES加密或解密的字符串，并确认AES密钥状态正常" class="layui-textarea"></textarea>
+
+<form class="layui-form" action="">
+  <div class="layui-form-item">
+    <div class="layui-input-block">
+      <input type="radio" name="sex" value="加密" title="加密" checked>
+      <input type="radio" name="sex" value="解密" title="解密"> 
+      <!--获取选项：if(document.getElementsByClassName("layui-unselect layui-form-radio layui-form-radioed")[0].children[1].textContent=="加密"){console.log("ok!");}--> 
+    </div>
+  </div>
+</form>
+<div class="layui-input-block">
+ <button class="layui-btn" onclick="bake_button()" lay-submit lay-filter="formDemo">BAKE</button>
+</div>
+
+</div>
+<div class="layui-collapse">
+  <div class="layui-colla-item">
+    <h2 class="layui-colla-title">查看结果</h2>
+    <div id="result_show" class="layui-colla-content layui-show">尚未生成结果</div>
+  </div>
+</div>
+</div>
+<!--帮助部分-->
+<!--卡片面板+图片，说明流程和使用方法-->
+</div>
+    <div class="layui-col-md3" style="padding: 8px;">
+<div class="layui-card">
+<div class="layui-card-header">什么是ECDH-Cook?</div>
+<div class="layui-card-body">
+    ECDH-Cook使用Web Crypto Api，两个用户可以在自己浏览器上生成ECDH密钥对，并将其公钥分享给对方。双方用对方的公钥和自己的私钥能够生成相同的AES密钥进行加解密，从而保证端到端的通信安全。
+</div>
+<div class="layui-card-body">
+    由于代码都在前端运行，你的密钥、数据等都不会上传到后端----你还可以从Github上下载此工具，只需要一个浏览器就能随时运行，这样就不必联网了。
+</div>
+</div>
+<div class="layui-card">
+<div class="layui-card-header">如何使用ECDH-Cook?</div>
+<div class="layui-card-body">
+    途径1-未持有AES密钥：先生成ECDH密钥对，将你的公钥分享给对方并将对方分享给你的外部ECDH公钥填入‘从公钥生成’，点击‘生成AES共享密钥’，确认密钥状态为‘√’后就可以对字符串进行加解密！
+</div>
+<div class="layui-card-body">
+    途径2-早已生成AES密钥：直接将密钥填入‘或直接导入’，并点击‘导入AES密钥’，确认密钥状态为‘√’后就可以对字符串进行加解密！
+</div>
+</div>
+<div class="layui-card">
+<div class="layui-card-header">小贴士</div>
+<div class="layui-card-body">
+    ECDH-Cook不支持导出ECDH私钥，每次关闭或刷新浏览器都会清空私钥，你可以考虑保存你的AES密钥来在之后继续解密。
+</div>
+</div>
+    </div>
+
+</div>
+<!--</div>-->
+</body>
+
+<script>
+window.onbeforeunload = function(event) {
+    event.returnValue = "如果退出或刷新，你的所有数据将不会保存，请确认已经手动保存了你的AES密钥！";
+};
+var dhk;//保存本地密钥对,key形式
+var eptkey;//保存导出的公钥,string（base64）
+var outpbkey;//保存外部公钥的字符串格式,string（base64）
+var outkey;//保存外部公钥的使用格式,key形式
+var aeskey;//保存aes所用密钥,key形式
+var aesindata="你好啊";//aes加密输入字符串,utf-8编码string
+var aesoutdata;//aes加密输出，ab
+var sendata;//aes加密后发送的字符串,string（base64）
+var receivedata;//接收的需aes解密的字符串，string（base64）
+var aesdecdata;//aes解密输入,ab
+var aesdecout;//aes解密输出,utf-8编码string
+var aesoutkey;//aes导出密钥，string（base64）
+var aesinkey;//aes导入密钥string（base64）
+var show_result;//用于显示的aes加解密数据
+var ivin=new Uint8Array([4,3,1,2,5,6,7,8,9,10,13,12,11,0,15,16]);//固定向量
+
+//var uint8array = new TextEncoder().encode(string);//string转uint8,.buffer就是ab形式。
+//var string = new TextDecoder('utf-8').decode(uint8array);//uint8转string
+
+function ab2str(buf) {
+	return String.fromCharCode.apply(null, new Uint8Array(buf));
+}
+
+function str2ab(str) {
+	var buf = new ArrayBuffer(str.length);
+	var bufView = new Uint8Array(buf);
+	for (var i=0, strLen=str.length; i<strLen; i++) {
+	bufView[i] = str.charCodeAt(i);
+	}
+	return buf;
+}
+
+//1、生成密钥
+async function gen_ecdhkeypair(){
+	await window.crypto.subtle.generateKey(
+	    {
+	        name: "ECDH",
+	        namedCurve: "P-384", 
+	    },
+	    false, 
+	    ["deriveKey", "deriveBits"] 
+	)
+	.then(function(key){
+	    //returns a keypair object
+	    dhk=key;
+	});
+}
+//2、导出公钥
+async function export_pbkeystring(){
+	var aykey;//暂存导出公钥
+	await window.crypto.subtle.exportKey(
+	    "raw", //can be "jwk" (public or private), "raw" (public only), "spki" (public only), or "pkcs8" (private only)
+	    dhk.publicKey //can be a publicKey or privateKey, as long as extractable was true
+	)
+	.then(function(keydata){
+	    //returns the exported key data
+	    aykey=keydata;
+	    var uint8_msg = new Uint8Array(aykey);
+	    var decodedString = String.fromCharCode.apply(null, uint8_msg);
+	    eptkey=btoa(decodedString);//base64编码
+	});
+}
+
+//3、载入外部公钥并同时以此生成aes密钥（载入python公钥应该是strip的问题）
+async function gen_aeskey(){
+	var eccstring=atob(outpbkey);//b64解码
+	var bufview=str2ab(eccstring);
+	await window.crypto.subtle.importKey(
+	    "raw",
+	    bufview,
+	    {   //these are the algorithm options
+	        name: "ECDH",
+	        namedCurve: "P-384", //can be "P-256", "P-384", or "P-521"
+	    },
+	    false, 
+	    ["deriveKey", "deriveBits"]
+	)
+	.then(function(publicKey){
+	    outkey=publicKey;
+	})
+	.catch(function(err){
+	    console.error(err);
+	});
+
+	await window.crypto.subtle.deriveKey(
+	    {
+	        name: "ECDH",
+	        namedCurve: "P-384", 
+	        public: outkey, //an ECDH public key from generateKey or importKey
+	    },
+	    dhk.privateKey, 
+	    { 
+	        name: "AES-CBC", 
+	        length: 256, //can be  128, 192, or 256
+	    },
+	    true, 
+	    ["encrypt", "decrypt"] 
+	)
+	.then(function(keydata){
+		aeskey=keydata;
+	    console.log(keydata);
+	})
+	.catch(function(err){
+	    console.error(err);
+	});
+}
+
+
+//4、使用aes加密数据
+async function aes_enc(){
+	var aesdata=new TextEncoder().encode(aesindata).buffer;
+	var aesuint8out;
+	await window.crypto.subtle.encrypt(
+	    {
+	        name: "AES-CBC",
+	        iv: ivin,
+	    },
+	    aeskey, //from generateKey or importKey above
+	    aesdata //ArrayBuffer of data you want to encrypt
+	)
+	.then(function(encrypted){
+	    //returns an ArrayBuffer containing the encrypted data
+	    //console.log(new Uint8Array(encrypted))
+	    aesoutdata=btoa(ab2str(encrypted));//encrypted是ab格式,aesout是base64编码密文
+	    show_result=aesoutdata;
+	})
+	.catch(function(err){
+	    console.error(err);
+	});
+}
+//返回uint8数组,内部是ab,注意下一阶段输入也是ab
+
+//aes解密
+async function aes_dec(){
+	var to_use=str2ab(atob(aesdecdata));
+	await window.crypto.subtle.decrypt(
+	    {
+	        name: "AES-CBC",
+	        iv: ivin, //The initialization vector you used to encrypt
+	    },
+	    aeskey, //from generateKey or importKey above
+	    to_use //ArrayBuffer of the data
+	)
+	.then(function(decrypted){
+	    //returns an ArrayBuffer containing the decrypted data
+	    //console.log(new TextDecoder('utf-8').decode(new Uint8Array(decrypted)));
+	    aesdecout=new TextDecoder('utf-8').decode(new Uint8Array(decrypted));
+	    show_result=aesdecout;
+	})
+	.catch(function(err){
+	    console.error(err);
+	});
+}
+
+//5、导出/导入AES密钥
+async function aes_export(){
+  await window.crypto.subtle.exportKey(
+      "raw", //can be "jwk" or "raw"
+      aeskey //extractable must be true
+  )
+  .then(function(keydata){
+      //returns the exported key data
+	var uint8_msg = new Uint8Array(keydata);
+	var decodedString = String.fromCharCode.apply(null, uint8_msg);
+	aesoutkey=btoa(decodedString);//base64编码
+  })
+  .catch(function(err){
+      console.error(err);
+  });
+}
+
+async function aes_import(){
+	var aesstring=atob(aesinkey);//b64解码
+	var aesbufview=str2ab(aesstring);
+	await window.crypto.subtle.importKey(
+	    "raw", //can be "jwk" or "raw"
+	    aesbufview,
+	    {   //this is the algorithm options
+	        name: "AES-CBC",
+	    },
+	    true, //whether the key is extractable (i.e. can be used in exportKey)
+	    ["encrypt", "decrypt"] //can be "encrypt", "decrypt", "wrapKey", or "unwrapKey"
+	)
+	.then(function(key){
+		aeskey=key;
+	})
+	.catch(function(err){
+	    console.error(err);
+	});
+}
+
+
+//按钮调用方法，总计4个
+async function ecdh_gen_button(){
+	await gen_ecdhkeypair();
+	await export_pbkeystring();
+	document.getElementById("ecdh_state").className="layui-icon layui-icon-ok-circle";//更新密钥状态标志（后面的需要放入then中避免出错）
+	document.getElementById("ecdh_state").style="font-size: 30px; color: #5FB878;";
+	document.getElementById("epb_show").innerText=eptkey;//更新折叠内容(需要放入then中避免出错）
+
+}
+
+async function aesshare_gen_button(){
+	outpbkey=document.getElementById('ecdhpbkey_input').value;//读取input内容放入新变量
+	await gen_aeskey();//生成共享密钥
+	await aes_export();
+	document.getElementById("aes_state").className="layui-icon layui-icon-ok-circle";//更新密钥状态标志（后面的需要放入then中避免出错）
+	document.getElementById("aes_state").style="font-size: 30px; color: #5FB878;";
+	document.getElementById("aeskey_show").innerText=aesoutkey;//更新折叠内容(需要放入then中避免出错）
+	document.getElementById('ecdhpbkey_input').value="";
+}
+
+async function aesshare_import_button(){
+	aesinkey=document.getElementById('aeskey_input').value;//读取input内容放入新变量
+	await aes_import();//导入密钥
+	await aes_export();
+	document.getElementById("aes_state").className="layui-icon layui-icon-ok-circle";//更新密钥状态标志（后面的需要放入then中避免出错）
+	document.getElementById("aes_state").style="font-size: 30px; color: #5FB878;";
+	document.getElementById("aeskey_show").innerText=aesoutkey;//更新折叠内容(需要放入then中避免出错）
+	document.getElementById('aeskey_input').value="";
+}
+
+async function bake_button(){
+	receivedata=document.getElementById('aesdata').value;//读取input内容放入新变量
+	if(document.getElementsByClassName("layui-unselect layui-form-radio layui-form-radioed")[0].children[1].textContent=="加密"){//读取单选选项进行选择分支并使用aes加密/解密
+		aesindata=document.getElementById('aesdata').value;
+		await aes_enc();
+	}
+	else{
+		aesdecdata=document.getElementById('aesdata').value;
+		await aes_dec();
+	}
+	document.getElementById("result_show").innerText=show_result;//更新折叠内容(需要放入then中避免出错）
+}
+
+</script>
+
+</html>
